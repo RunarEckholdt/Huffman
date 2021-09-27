@@ -1,16 +1,21 @@
 #include "Huffman.h"
 
 
-void Huffman::compress(const std::string& fileName, const std::string& compressedFileName){
+bool Huffman::compress(const std::string& fileName, const std::string& compressedFileName){
 	std::ifstream ifs;
 	std::vector<HuffCode> huffmanCodes;
 	ifs.open(fileName, std::ifstream::in);
-	
+	if(!ifs){
+		printf("Could not open file: %s \n", fileName);
+		return false;
+	}
 	std::string text; 
 	std::getline(ifs, text,'\0');
 	ifs.close();
-	this->determineFrequency(text, huffmanCodes);
-
+	if(!this->determineFrequency(text, huffmanCodes)){
+		return false;
+	}
+	
 	HuffmanTree ht(huffmanCodes);
 	
 	this->extractBinariesFromTree(ht,huffmanCodes);
@@ -18,30 +23,45 @@ void Huffman::compress(const std::string& fileName, const std::string& compresse
 	std::string huffmanCode = this->huffmanEncodeText(text);
 	std::string binary = this->huffmanToBinary(huffmanCode);
 	std::ofstream ofs;
+	
 	ofs.open(compressedFileName, std::ios::out | std::ios::binary);
-	ofs << binary;
+	if(!ofs){
+		printf("Could not create/open file: %s\n", compressedFileName);
+		return false;
+	}
 
+	ofs << binary;
+	return true;
 }
 
-void Huffman::writeHuffmap(const std::string& newFileName){
+bool Huffman::writeHuffmap(const std::string& newFileName){
 	if(huffmanMapCompress.size() == 0){
 		printf("HuffmapCompress was empty. Compress a file first.\n");
-		return;
+		return false;
 	}
 
 	std::ofstream ofs;
 	ofs.open(newFileName, std::ofstream::out);
+	if(!ofs){
+		printf("Could not create/open file: %s\n", newFileName);
+		return false;
+	}
 
 	for(std::pair<char, std::string> p : huffmanMapCompress){
 		ofs << "{" << p.first << "," << p.second << "}\n";
 	}
 	ofs.close();
+	return true;
 
 }
 
-void Huffman::readHuffMap(const std::string& huffmapFile){
+bool Huffman::readHuffMap(const std::string& huffmapFile){
 	std::ifstream ifs;
 	ifs.open(huffmapFile, std::ifstream::in);
+	if(!ifs){
+		printf("Could not open file: %s \n", huffmapFile);
+		return false;
+	}
 	char* ch = new char[1];
 	char ascii;
 	std::string huffcode;
@@ -55,6 +75,8 @@ void Huffman::readHuffMap(const std::string& huffmapFile){
 			ifs.read(ch, 1);
 			if(*ch != ','){
 				printf("An error occured while parsing huffmap\n");
+				delete[] ch;
+				return false;
 			}
 			else{
 				ifs.read(ch, 1);
@@ -69,13 +91,14 @@ void Huffman::readHuffMap(const std::string& huffmapFile){
 	}
 	ifs.close();
 	delete[] ch;
+	return true;
 	
 }
 
-void Huffman::decompress(const std::string& compressedFileName, const std::string& decompressedFileName){
+bool Huffman::decompress(const std::string& compressedFileName, const std::string& decompressedFileName){
 	if(huffmanMapDecompress.size() == 0){
 		printf("A huffmap is needed to decompress file. Please use readHuffMap to read the huffmap\n");
-		return;
+		return false;
 	}
 	std::string decompressed;
 	std::string tmp;
@@ -91,14 +114,23 @@ void Huffman::decompress(const std::string& compressedFileName, const std::strin
 	}
 
 	ofs.open(decompressedFileName, std::ofstream::out);
+	if(!ofs){
+		printf("Could not create/open file: %s\n",decompressedFileName);
+		return false;
+	}
 	ofs << decompressed;
 	ofs.close();
+	return true;
 	
 }
 
-void Huffman::determineFrequency(const std::string& text, std::vector<HuffCode>& huffmanCodes){
+bool Huffman::determineFrequency(const std::string& text, std::vector<HuffCode>& huffmanCodes){
 	std::map<char, HuffCode> huffMap;
-	
+	if(text.length() == 0){
+		printf("Cannot determine frequency of characters in empty string");
+		return false;
+	}
+
 	for(char ch : text){
 		if(huffMap.find(ch) == huffMap.end()){
 			HuffCode h;
@@ -108,9 +140,12 @@ void Huffman::determineFrequency(const std::string& text, std::vector<HuffCode>&
 			huffMap[ch].freq++;
 		}
 	}
+	
 	for(std::pair<const char, HuffCode>& p : huffMap){
 		huffmanCodes.push_back(p.second);
 	}
+	
+	return true;
 }
 
 void Huffman::extractBinariesFromTree(const HuffmanTree& ht, std::vector<HuffCode>& huffmanCodes){
